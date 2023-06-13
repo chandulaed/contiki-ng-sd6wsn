@@ -41,21 +41,20 @@
 #include "contiki.h"
 #include "contiki-net.h"
 #include "net/ipv6/uip-packetqueue.h"
-#include "res-flow-mod.h"
+
 #include "net/ipv6/uip-nd6.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-ds6-nbr.h"
 #include "net/linkaddr.h"
 #include "net/routing/routing.h"
-//extern uip_ipaddr_t * get_next_hop_by_flow(uip_ipaddr_t *srcaddress,uip_ipaddr_t *dstaddress,uint16_t *srcport,uint16_t *dstport,uint8_t *proto);
 
 #include <string.h>
 
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "TCP/IP"
-//#define LOG_LEVEL LOG_LEVEL_TCPIP
-#define LOG_LEVEL LOG_LEVEL_ERR
+#define LOG_LEVEL LOG_LEVEL_TCPIP
+
 #ifdef UIP_FALLBACK_INTERFACE
 extern struct uip_fallback_interface UIP_FALLBACK_INTERFACE;
 #endif
@@ -503,43 +502,13 @@ get_nexthop(uip_ipaddr_t *addr)
   LOG_INFO_6ADDR(&UIP_IP_BUF->destipaddr);
   LOG_INFO_("\n");
 
-if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
+  if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
     LOG_INFO("output: selected next hop from SRH: ");
     LOG_INFO_6ADDR(addr);
     LOG_INFO_("\n");
     return addr;
   }
 
-
- /* sdn6wsn request
-
-
-    //	uint16_t udpsrcport = (*((uint8_t *)UIP_UDP_BUF + 8) << 8) | *((uint8_t *)UIP_UDP_BUF + 9);
-      uint16_t udpsrcport = UIP_HTONS(UIP_UDP_BUF->srcport);
-		//	uint16_t udpdstport = (*((uint8_t *)UIP_UDP_BUF + 10) << 8) | *((uint8_t *)UIP_UDP_BUF + 11);
-      uint16_t udpdstport = UIP_HTONS(UIP_UDP_BUF->destport);
-      
-      LOG_INFO("source port -> %d, destination port -> %d \n",udpsrcport,udpdstport);
-      uint8_t proto_out = *((uint8_t *)UIP_IP_BUF + 40);
-      LOG_INFO("protocol -->%d \n",proto_out);
-      
-        if(proto_out == UIP_PROTO_UDP){
-
-        LOG_INFO("Selecting with Custom Flow Table port -->%d \n",UIP_IP_BUF->proto);
-        addr = get_next_hop_by_flow(&UIP_IP_BUF->srcipaddr,&UIP_IP_BUF->destipaddr,&udpsrcport,&udpdstport,&proto_out);
-        LOG_INFO("Address Selected");
-        if(addr!=NULL){LOG_INFO_6ADDR(addr);}
-        LOG_INFO("\n");
-        
-        }
-      
-  //  LOG_INFO("src -> %d, dest -> %d \n",udpsrcport,udpdstport);
-
-*/
-  /* sdn6wsn request*/
-/*
-  
-*/
   /* We first check if the destination address is on our immediate
      link. If so, we simply use the destination address as our
      nexthop address. */
@@ -703,6 +672,7 @@ tcpip_ipv6_output(void)
 
   /* Look for a next hop */
   if((nexthop = get_nexthop(&ipaddr)) == NULL) {
+    LOG_WARN("output: No next-hop found, dropping packet\n");
     goto exit;
   }
   annotate_transmission(nexthop);

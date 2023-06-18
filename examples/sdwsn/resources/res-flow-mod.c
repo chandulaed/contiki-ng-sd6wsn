@@ -49,6 +49,7 @@
 #include "coap-engine.h"
 #include "net/ipv6/uip-debug.h"
 #include "res-flow-mod.h"
+#include "net/ipv6/uip-ds6.h"
 #define FLOW_TABLE_SIZE 32
 #define NO_FLOW_ENTRIES 20
 #define LOG_MODULE "App"
@@ -86,7 +87,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
   	if(*dstport == 5683 || *srcport == 5683 ) {
 		return NULL;
 	}
-	printf("\nnumber of table_entries: %d\n",table_entries);
+	printf("number of table_entries: %d\n",table_entries);
 	while(table_pos<=table_entries){
 		if(uip_ipaddr_cmp(dstaddress,&flow_table[table_pos].ipv6dst)) {
 			if(uip_ipaddr_cmp(srcaddress,&flow_table[table_pos].ipv6src)){
@@ -96,7 +97,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 							|| &flow_table[table_pos].dstport == NULL){
 						if(*proto == flow_table[table_pos].ipproto
 								|| &flow_table[table_pos].ipproto == NULL){
-							PRINTF("flow found !\n");
+							printf("flow found !\n");
 							break;
 						}
 					}
@@ -106,16 +107,18 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 		table_pos++;
 	}
 
-	PRINTF("table_pos: %d\n",table_pos);
-	PRINTF("get_next_hop_by_flow ipv6dst:");
+	printf("table_pos: %d\n",table_pos);
+	printf("get_next_hop_by_flow ipv6dst:");
 	PRINT6ADDR(&flow_table[table_pos].ipv6dst);
-	PRINTF("\n");
+	printf("\n");
 
   if(table_pos>table_entries) {
+		printf("no record found");
 		noflow_packet_srcaddr[noflow_packet_count] = srcaddress->u8[15];
 		noflow_packet_dstaddr[noflow_packet_count] = dstaddress->u8[15];
 		noflow_packet_srcport[noflow_packet_count] = (uint16_t)*srcport;
 		noflow_packet_dstport[noflow_packet_count] = (uint16_t)*dstport;
+		noflow_packet_count++;
     return NULL;
     	}else {
 		if(flow_table[table_pos].action == 0 ) { // action = forward
@@ -128,6 +131,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 	//			PRINTF("Control plane forwarding !\n");
 				return NULL;
 			} else {
+
 				return NULL; // action = drop
 			}
 		}
@@ -150,7 +154,9 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			printf("test\n");
 	const char *str = NULL;
 	uint8_t len = 0;
-	uint8_t flowid_temp;
+	//uint8_t flowid_temp;
+	uip_ipaddr_t tmp_src_addr;
+	uip_ipaddr_t tmp_dst_addr;
 	uint8_t existing_flow = 0;
 
 	table_index = 0;
@@ -163,6 +169,27 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 
 	 printf("Query-all: %s\n", buffer);
 
+
+ if ((len = coap_get_post_variable(request, "ipv6src", &str))) {
+			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
+			uiplib_ip6addrconv((char *)buffer, &tmp_src_addr);
+			//flow_table[table_index].ipv6src=tmp_addr;
+		}
+	if ((len = coap_get_post_variable(request, "ipv6dst", &str))) {
+			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
+			uiplib_ip6addrconv((char *)buffer, &tmp_dst_addr);
+			//flow_table[table_index].ipv6dst=tmp_addr;
+	}
+	while(table_index<=table_entries){
+		if(uip_ipaddr_cmp(&tmp_src_addr,&flow_table[table_index].ipv6src)){
+			if(uip_ipaddr_cmp(&tmp_dst_addr,&flow_table[table_index].ipv6dst))
+			printf("flowid entry found, changing values\n");
+					existing_flow = 1;
+					break;
+		}
+		table_index++;
+	}
+
   len = coap_get_post_variable(request,"operation",&str);
 
     snprintf((char *)buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
@@ -170,35 +197,29 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 	printf("operation: %s\n", buffer);
 
   if ((char)buffer[0] == 'i') {
-
+/*/
 		if ((len = coap_get_post_variable(request, "flowid", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			flowid_temp=atoi((char *)buffer);
-			while(table_index<=table_entries){
-				if(flowid_temp == flow_table[table_index].flowid ) {
-					printf("flowid entry found, changing values\n");
-					existing_flow = 1;
-					break;
-				}
-				table_index++;
-			}
+			//while(table_index<=table_entries){
+			//	if(flowid_temp == flow_table[table_index].flowid ) {
+			//		printf("flowid entry found, changing values\n");
+			//		existing_flow = 1;
+			//		break;
+			//	}
+			//	table_index++;
+		//	}
 			if(!existing_flow) {  //if it's a new flow, use the next empty table entry
 				table_index = table_entries;
 				table_entries++;
 			}
 			flow_table[table_index].flowid=flowid_temp;
 			printf("flow id added =%d",flowid_temp);
-		}
-    if ((len = coap_get_post_variable(request, "ipv6src", &str))) {
-			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
-			uiplib_ip6addrconv((char *)buffer, &tmp_addr);
-			flow_table[table_index].ipv6src=tmp_addr;
-		}
-		if ((len = coap_get_post_variable(request, "ipv6dst", &str))) {
-			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
-			uiplib_ip6addrconv((char *)buffer, &tmp_addr);
-			flow_table[table_index].ipv6dst=tmp_addr;
-		}
+		}*/
+
+	if(existing_flow!=1){
+		flow_table[table_index].ipv6src=tmp_src_addr;
+		flow_table[table_index].ipv6dst=tmp_dst_addr;
 		if ((len = coap_get_post_variable(request, "srcport", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			flow_table[table_index].srcport=atoi((char *)buffer);
@@ -224,16 +245,21 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			flow_table[table_index].txpwr=atoi((char *)buffer);
 		}
-    coap_set_status_code(response, CHANGED_2_04);
+		   coap_set_status_code(response, CHANGED_2_04);
+	}
+		
 	}
 	
 printf("%c", buffer[0]);
 if ((char) buffer[0] == 'd') {  //operation flow delete
-		if ((len = coap_get_post_variable(request, "flowid", &str))) {
+	/*	if ((len = coap_get_post_variable(request, "flowid", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			flowid_temp=atoi((char *)buffer);
 		}
+		
+
 		printf("operation = delete, flowid = %d",flowid_temp);
+		*/
 		while(table_index<=table_entries){  // find the entry
 			printf("ti=%d",flow_table[table_index].flowid);
 			if(flowid_temp == flow_table[table_index].flowid ) {
@@ -252,11 +278,15 @@ if ((char) buffer[0] == 'd') {  //operation flow delete
 
 void packet_in_handler(coap_message_t* request, coap_message_t* response, uint8_t *buffer,
 		uint16_t preferred_size, int32_t *offset) {
+	
+	const uip_ipaddr_t *addr;
+	addr = &uip_ds6_if.addr_list[1].ipaddr;
 
 	uint16_t n = 0;
 	PRINTF("handler src-dst-address:%d %d\n", noflow_packet_srcaddr[current_packet_count],
 			noflow_packet_dstaddr[current_packet_count]);
-	n += sprintf((char *)&(buffer[n]), "{\"packetin\":{");
+	n += sprintf((char *)&(buffer[n]), "{\"sn\":\"n%x\",",((addr->u8[14] << 8) + addr->u8[15]));
+	n += sprintf((char *)&(buffer[n]), "{\"pn\":{");
 	n += sprintf((char *)&(buffer[n]),"\"saddr\":\"%x\",\"daddr\":\"%x\",\"sport\":%d,\"dport\":%d}}",
 			noflow_packet_srcaddr[current_packet_count],
 			noflow_packet_dstaddr[current_packet_count],

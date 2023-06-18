@@ -511,7 +511,7 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
   }
 
 
- /* sdn6wsn request
+
 
 
     //	uint16_t udpsrcport = (*((uint8_t *)UIP_UDP_BUF + 8) << 8) | *((uint8_t *)UIP_UDP_BUF + 9);
@@ -528,19 +528,24 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
         LOG_INFO("Selecting with Custom Flow Table port -->%d \n",UIP_IP_BUF->proto);
         addr = get_next_hop_by_flow(&UIP_IP_BUF->srcipaddr,&UIP_IP_BUF->destipaddr,&udpsrcport,&udpdstport,&proto_out);
         LOG_INFO("Address Selected");
-        if(addr!=NULL){LOG_INFO_6ADDR(addr);}
+        if(addr!=NULL){LOG_INFO_6ADDR(addr);}else{
+          LOG_INFO("packet drop");
+        }
         LOG_INFO("\n");
         
         }
       
   //  LOG_INFO("src -> %d, dest -> %d \n",udpsrcport,udpdstport);
 
-*/
+
   /* sdn6wsn request*/
 /*
-  
+
 */
-  /* We first check if the destination address is on our immediate
+//check whether port is 5683 sd6wsn
+if(udpsrcport==5683 || udpdstport==5683||proto_out != UIP_PROTO_UDP){
+  LOG_INFO("COAP PACKET ROUTING");
+    /* We first check if the destination address is on our immediate
      link. If so, we simply use the destination address as our
      nexthop address. */
   if(uip_ds6_is_addr_onlink(&UIP_IP_BUF->destipaddr)) {
@@ -582,6 +587,7 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
       LOG_INFO_("\n");
     }
   }
+}
 
   return nexthop;
 }

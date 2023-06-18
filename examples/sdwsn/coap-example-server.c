@@ -95,7 +95,7 @@ extern coap_resource_t res_temperature;
 
 PROCESS(er_example_server, "Erbium Example Server");
 PROCESS(udp_client_process, "UDP client");
-AUTOSTART_PROCESSES(&er_example_server);
+AUTOSTART_PROCESSES(&er_example_server,&udp_client_process);
 
 PROCESS_THREAD(er_example_server, ev, data)
 {

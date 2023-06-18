@@ -48,6 +48,9 @@
 #include "net/routing/rpl-lite/rpl.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE "App"
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 typedef struct etx_s {
 	uint16_t nbr_addr;
@@ -129,8 +132,8 @@ res_periodic_handler()
 
 	while(parent_counter < parent_index) {
 		etx_temp = rpl_neighbor_get_link_metric(etx_table[parent_counter].p);
-		//PRINTF("parent: %x ",etx_table[parent_counter].nbr_addr);
-		//PRINTF("etx_temp:%d\n",etx_temp);
+		LOG_INFO("parent: %x ",etx_table[parent_counter].nbr_addr);
+		LOG_INFO("etx_temp:%d\n",etx_temp);
 
 		if(etx_temp > etx_table[parent_counter].nbr_etx * 2
 				|| etx_temp < etx_table[parent_counter].nbr_etx / 2 ) {
@@ -139,10 +142,11 @@ res_periodic_handler()
 		}
 		parent_counter++;
 	}
+	
 	/* Notify the registered observers which will trigger the res_get_handler to create the response. */
 	if (etx_changed) {
-		PRINTF("etx_changed !\n");
-   coap_notify_observers(&res_etx);
+		LOG_INFO("etx_changed !\n");
+		coap_notify_observers(&res_etx);
   }
 }
 

@@ -197,21 +197,21 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			printf("dst addr = %s\n",(char *)buffer);
 			uiplib_ip6addrconv((char *)buffer, &tmp_dst_addr);	
 			}
-			if ((len = coap_get_post_variable(request, "ac", &str))) {
+			if ((len = coap_get_post_variable(request, "a", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			action=atoi((char *)buffer);
 			LOG_INFO("action = %d\n",action);
 			}
 			if ((len = coap_get_post_variable(request, "n", &str))) {
-			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
+			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "fe80::%.*s", len, str);
 			LOG_INFO("nxhopaddr: %s\n",(char *)buffer);
 			uiplib_ip6addrconv((char *)buffer, &nxhopaddr);
 			}else{
 				LOG_INFO("NO NXHOP ADDR");
 			}
 
-
-				while(flowmodpos<=table_entries){
+			//check existing flow
+			while(flowmodpos<=table_entries){
 					printf("loop ");
 					LOG_INFO_6ADDR(&flow_table[flowmodpos].ipv6dst);
 					printf("\n");
@@ -221,11 +221,13 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 							printf("get_next_hop_by_flow ipv6dst: ");
 							LOG_INFO_6ADDR(&flow_table[flowmodpos].ipv6dst);
 							printf("\n");
+							existing_flow=1;
 							break;
+						}
+					}
+					flowmodpos++;
 			}
-		}
-		flowmodpos++;
-		}
+
 			printf("is flow exist = %d\n",existing_flow);
 
 			len = coap_get_post_variable(request,"o",&str);
@@ -233,23 +235,57 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			printf("operation: %s\n",(char *) buffer);
 
 			if ((char)buffer[0] == 'i') {
-				if(table_entries<FLOW_TABLE_SIZE){
-					LOG_INFO("Insert operation selected\n");
-					flow_table[flowmodpos].action=action;
-					flow_table[flowmodpos].ipv6dst=tmp_dst_addr;
-					flow_table[flowmodpos].ipv6src=tmp_src_addr;
-					flow_table[flowmodpos].nhipaddr=nxhopaddr;
-					flow_table[flowmodpos].ttl=900;
-					table_entries++;
+
+				if ((len = coap_get_post_variable(request, "t", &str))) {
+					snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
+					int autoreq=atoi((char *)buffer);
+					LOG_INFO("is auto = %d\n",autoreq);
+					if (autoreq==1){
+						LOG_INFO("Automatic Request Handling\n");
+						if(existing_flow!=1){
+							if(table_entries<FLOW_TABLE_SIZE){
+							LOG_INFO("Insert New Automatic Flow\n");
+							flow_table[flowmodpos].action=action;
+							flow_table[flowmodpos].ipv6dst=tmp_dst_addr;
+							flow_table[flowmodpos].ipv6src=tmp_src_addr;
+							flow_table[flowmodpos].nhipaddr=nxhopaddr;
+							flow_table[flowmodpos].ttl=900;
+							table_entries++;
+						}else{
+							LOG_ERR("FLOW TABLE FULL");
+						}
+						}else{
+							LOG_INFO("Flow entry Exist for auto Request");
+						}
+					}else{
+						LOG_INFO("Manual Request Handling");
+						if(existing_flow!=1){
+							if(table_entries<FLOW_TABLE_SIZE){
+							LOG_INFO("Insert New Manual Flow\n");
+							flow_table[flowmodpos].action=action;
+							flow_table[flowmodpos].ipv6dst=tmp_dst_addr;
+							flow_table[flowmodpos].ipv6src=tmp_src_addr;
+							flow_table[flowmodpos].nhipaddr=nxhopaddr;
+							flow_table[flowmodpos].ttl=5000;
+							table_entries++;
+						}else{
+							LOG_ERR("FLOW TABLE FULL");
+						}
+						}else{
+							LOG_INFO("Modify Exsiting Flow\n");
+							flow_table[flowmodpos].action=action;
+							flow_table[flowmodpos].nhipaddr=nxhopaddr;
+							flow_table[flowmodpos].ttl=5000;
+							table_entries++;
+						}
+					}
 				}else{
-					LOG_ERR("FLOW TABLE FULL");
+						LOG_ERR("Request typenot found");
 				}
-				
 			}
 
 
-printf("%c", buffer[0]);
-if ((char) buffer[0] == 'd') {  //operation flow delete
+			if ((char) buffer[0] == 'd') {  //operation flow delete
 	/*	if ((len = coap_get_post_variable(request, "flowid", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
 			flowid_temp=atoi((char *)buffer);
@@ -273,9 +309,9 @@ if ((char) buffer[0] == 'd') {  //operation flow delete
 		table_index++;
 		}
 	}
-	*/
-}
-		}
+	*/}
+	
+	}
 
 void packet_in_handler(coap_message_t* request, coap_message_t* response, uint8_t *buffer,
 		uint16_t preferred_size, int32_t *offset) {

@@ -511,7 +511,7 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
     return addr;
   }
 
-
+#ifdef NGSDWSN
 
     //	uint16_t udpsrcport = (*((uint8_t *)UIP_UDP_BUF + 8) << 8) | *((uint8_t *)UIP_UDP_BUF + 9);
       uint16_t udpsrcport = UIP_HTONS(UIP_UDP_BUF->srcport);
@@ -524,14 +524,14 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
     
         if(proto_out == UIP_PROTO_UDP){
         LOG_INFO("Selecting with Custom Flow Table port -->%d \n",udpsrcport);
-        nexthop = get_next_hop_by_flow(&UIP_IP_BUF->srcipaddr,&UIP_IP_BUF->destipaddr,&udpsrcport,&udpdstport,&proto_out);
+          nexthop = get_next_hop_by_flow(&UIP_IP_BUF->srcipaddr,&UIP_IP_BUF->destipaddr,&udpsrcport,&udpdstport,&proto_out);
         LOG_INFO("Address Selected ");
         if(nexthop!=NULL){
 
           LOG_INFO_6ADDR(nexthop);}else{
           if (/* condition */udpsrcport==8765 || udpdstport==5678)
           {
-            /* code *///uipbuf_clear();
+            /* code */uipbuf_clear();
             LOG_INFO("packet drop");
           }else{
             LOG_INFO("RPL routing packet");
@@ -540,7 +540,7 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
         LOG_INFO("\n");
         
         }
-  
+#endif
   //  LOG_INFO("src -> %d, dest -> %d \n",udpsrcport,udpdstport);
 
  
@@ -549,9 +549,10 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
 
 
 //check whether port is 5683 sd6wsn
-
-//if(udpsrcport!=8765 || udpdstport!=5678){ //proto_out != UIP_PROTO_UDP
- // LOG_INFO("RPL ROUTING\n");
+#ifdef NGSDWSN
+if(udpsrcport==5683 || udpdstport==5683||proto_out != UIP_PROTO_UDP){ //
+  LOG_INFO("RPL ROUTING\n");
+  #endif
     /* We first check if the destination address is on our immediate
      link. If so, we simply use the destination address as our
      nexthop address. */
@@ -593,9 +594,9 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
       LOG_INFO_6ADDR(nexthop);
       LOG_INFO_("\n");
     }
-
-//  }
-
+#ifdef NGSDWSN
+  }
+  #endif
 }
   LOG_INFO("Printing nexthop address ");
       LOG_INFO_6ADDR(nexthop);

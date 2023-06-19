@@ -55,6 +55,7 @@
 #define MSPARCH 1
 #endif
 
+#define NGSDWSN 1
 
 #endif /* PROJECT_CONF_H_ */
 

@@ -91,11 +91,11 @@ PROCESS_THREAD(er_example_server, ev, data){
 	printf("IP+UDP header: %u\n", UIP_IPUDPH_LEN);
 	printf("REST max chunk: %u\n", REST_MAX_CHUNK_SIZE);
 
-  coap_activate_resource(&res_flow_mod, "ngsd6wsn/flow-mod");
-	coap_activate_resource(&res_routes, "ngsd6wsn/info-get/routes");
+  //coap_activate_resource(&res_flow_mod, "ngsd6wsn/flow-mod");
+	//coap_activate_resource(&res_routes, "ngsd6wsn/info-get/routes");
   coap_activate_resource(&res_node_mod, "ngsd6wsn/node-mod");
  // coap_activate_resource(&res_node_mod, "test/node-mod");
-  coap_activate_resource(&res_etx,"ngsd6wsn/nbr-etx");
+ // coap_activate_resource(&res_etx,"ngsd6wsn/nbr-etx");
 //  coap_activate_resource(&res_rssi, "test/info-get/rssi");
   PROCESS_END();
 } //coap proces

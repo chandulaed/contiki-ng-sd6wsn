@@ -110,31 +110,31 @@ PROCESS_THREAD(er_example_server, ev, data)
    * WARNING: Activating twice only means alternate path, not two instances!
    * All static variables are the same for each URI path.
    */
-  coap_activate_resource(&res_hello, "test/hello");
-  coap_activate_resource(&res_mirror, "debug/mirror");
-  coap_activate_resource(&res_chunks, "test/chunks");
-  coap_activate_resource(&res_separate, "test/separate");
+  //coap_activate_resource(&res_hello, "test/hello");
+  //coap_activate_resource(&res_mirror, "debug/mirror");
+ // coap_activate_resource(&res_chunks, "test/chunks");
+//  coap_activate_resource(&res_separate, "test/separate");
   //coap_activate_resource(&res_push, "test/push");
   coap_activate_resource(&res_etx, "ngsd6wsn/nbr-etx");
 	coap_activate_resource(&res_flow_mod, "ngsd6wsn/flow-mod");
-  coap_activate_resource(&res_routes, "ngsd6wsn/info-get/routes");
+  //coap_activate_resource(&res_routes, "ngsd6wsn/info-get/routes");
   coap_activate_resource(&res_packet_in,"ngsd6wsn/packet-in");
 
 #if PLATFORM_HAS_BUTTON
-  coap_activate_resource(&res_event, "sensors/button");
+ // coap_activate_resource(&res_event, "sensors/button");
 #endif /* PLATFORM_HAS_BUTTON */
-  coap_activate_resource(&res_sub, "test/sub");
-  coap_activate_resource(&res_b1_sep_b2, "test/b1sepb2");
+ // coap_activate_resource(&res_sub, "test/sub");
+//  coap_activate_resource(&res_b1_sep_b2, "test/b1sepb2");
 #if PLATFORM_HAS_LEDS
 /*  coap_activate_resource(&res_leds, "actuators/leds"); */
-  coap_activate_resource(&res_toggle, "actuators/toggle");
+ // coap_activate_resource(&res_toggle, "actuators/toggle");
 #endif
 #if PLATFORM_HAS_LIGHT
   coap_activate_resource(&res_light, "sensors/light");
   SENSORS_ACTIVATE(light_sensor);
 #endif
 #if PLATFORM_HAS_BATTERY
-  coap_activate_resource(&res_battery, "sensors/battery");
+ // coap_activate_resource(&res_battery, "sensors/battery");
   SENSORS_ACTIVATE(battery_sensor);
 #endif
 #if PLATFORM_HAS_TEMPERATURE

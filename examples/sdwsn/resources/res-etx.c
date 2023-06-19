@@ -71,7 +71,7 @@ PERIODIC_RESOURCE(res_etx,
 		NULL,
 		NULL,
 		NULL,
-		60 * CLOCK_SECOND,
+		90 * CLOCK_SECOND,
 		res_periodic_handler);
 
 static void
@@ -126,27 +126,29 @@ res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buff
 static void
 res_periodic_handler()
 {
+	LOG_INFO("etestp");
  uint8_t parent_counter = 0;
 	uint16_t etx_temp;
-	uint8_t etx_changed = 0;
+	//uint8_t etx_changed = 0;
 
 	while(parent_counter < parent_index) {
 		etx_temp = rpl_neighbor_get_link_metric(etx_table[parent_counter].p);
 		LOG_INFO("parent: %x ",etx_table[parent_counter].nbr_addr);
 		LOG_INFO("etx_temp:%d\n",etx_temp);
-
 		if(etx_temp > etx_table[parent_counter].nbr_etx * 2
 				|| etx_temp < etx_table[parent_counter].nbr_etx / 2 ) {
 					etx_table[parent_counter].nbr_etx = etx_temp ;
-					etx_changed = 1;
+					//etx_changed = 1;
 		}
+		LOG_INFO("etest");
 		parent_counter++;
 	}
 	
 	/* Notify the registered observers which will trigger the res_get_handler to create the response. */
-	if (etx_changed) {
+	if (0) {
 		LOG_INFO("etx_changed !\n");
 		coap_notify_observers(&res_etx);
   }
 }
+
 

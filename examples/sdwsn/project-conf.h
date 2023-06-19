@@ -49,13 +49,13 @@
 
 #define SERVER_REPLY 1
 
-#define COAP_DTLS_PSK_DEFAULT_IDENTITY "Client_identity"
-#define COAP_DTLS_PSK_DEFAULT_KEY "secretPSK"
-#define COAP_DTLS_PSK_DEFAULT_HINT "hint123"
+
 
 #ifndef MSPARCH
 #define MSPARCH 1
 #endif
+
+
 #endif /* PROJECT_CONF_H_ */
 
 

@@ -45,8 +45,7 @@
 
 #define LOG_LEVEL_APP LOG_LEVEL_DBG
 
-#define COAP_DTLS_PSK_DEFAULT_IDENTITY "Client_identity"
-#define COAP_DTLS_PSK_DEFAULT_KEY "secretPSK"
+
 
 #undef RPL_CONF_STATS
 #define RPL_CONF_STATS 1

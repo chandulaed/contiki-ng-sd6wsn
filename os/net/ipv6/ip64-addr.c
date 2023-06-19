@@ -37,7 +37,8 @@
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "IPv6"
-#define LOG_LEVEL LOG_LEVEL_NONE
+//#define LOG_LEVEL LOG_LEVEL_NONE
+#define LOG_LEVEL LOG_LEVEL_INFO
 
 /*
  * By defult we do use the well-known-prefix for the IP64 address prefix, see

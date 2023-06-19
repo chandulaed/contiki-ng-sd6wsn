@@ -47,11 +47,11 @@
 #include <string.h>
 #include "coap-engine.h"
 #include "net/ipv6/uip-debug.h"
-#include "net/ipv6/res-flow-mod.h"
+#include "res-flow-mod.h"
 #include "net/ipv6/uip-ds6.h"
 #include "lib/list.h"
 #include "lib/memb.h"
-#define FLOW_TABLE_SIZE 30
+#define FLOW_TABLE_SIZE 32
 #define NO_FLOW_ENTRIES 20
 #include "sys/log.h"
 #define LOG_MODULE "App"
@@ -82,33 +82,32 @@ PERIODIC_RESOURCE(res_packet_in, "title=\"Packet-in\";rt=\"Text\";obs",
 		NULL,//post
 		NULL,//put
 		NULL,//delete
-		60*CLOCK_SECOND,
+		CLOCK_SECOND,
 		res_periodic_packet_in_handler);
 
 /*get next hop from flow table*/
 uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dstaddress,
 		uint16_t *srcport,uint16_t *dstport,uint8_t *proto){
 	
- 	 table_pos = 0;
+ // table_pos = 0;
   
   	if(*dstport == 5683 || *srcport == 5683 ) {
 		return NULL;
 	}
 
-	while(table_pos<=table_entries){
-		printf("loop ");
-		LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
-		printf("\n");
-		if(uip_ipaddr_cmp(dstaddress,&flow_table[table_pos].ipv6dst)) {
-			if(uip_ipaddr_cmp(srcaddress,&flow_table[table_pos].ipv6src)){
+	flow_entry_s *temp_entry=NULL;
+
+	for(temp_entry=&linked_table; temp_entry!=NULL ;temp_entry=temp_entry->next){
+
+		if(uip_ipaddr_cmp(dstaddress,&temp_entry->ipv6dst)) {
+			if(uip_ipaddr_cmp(srcaddress,&temp_entry->ipv6src)){
 							printf("flow found !\n");
 							printf("get_next_hop_by_flow ipv6dst: ");
-							LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
+							LOG_INFO_6ADDR(&temp_entry->ipv6dst);
 							printf("\n");
 							break;
 			}
 		}
-		table_pos++;
 	}
 /*
 	printf("number of table_entries: %d\n",table_entries);
@@ -135,7 +134,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 	
 	
 
-  if(table_pos>table_entries) {
+  if(temp_entry==NULL) {
 		printf("no record found\n");
 		noflow_packet_srcaddr[noflow_packet_count] = srcaddress->u8[15];
 		noflow_packet_dstaddr[noflow_packet_count] = dstaddress->u8[15];
@@ -144,13 +143,14 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 		noflow_packet_count++;
     return NULL;
     	}else {
-		if(flow_table[table_pos].action == 0 ) { // action = forward
+		if(temp_entry->action == 0 ) { // action = forward
 			printf("next hop returned: ");
-			LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
-			LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
+			LOG_INFO_6ADDR(&temp_entry->nhipaddr);
+			LOG_INFO_6ADDR(&temp_entry->ipv6dst);
+			LOG_INFO("using found = %d",temp_entry->action);
 			printf("\n");
 
-			return (&flow_table[table_pos].nhipaddr);
+			return (&temp_entry->nhipaddr);
 		} else{
 				return NULL; // action = drop
 			}
@@ -172,7 +172,6 @@ static void
 flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *buffer,
 		uint16_t preferred_size, int32_t *offset) {
 
-			uint8_t flowmodpos = 0;
 			const char *str = NULL;
 			uint8_t len = 0;
 			uip_ipaddr_t tmp_src_addr;
@@ -198,9 +197,11 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			uiplib_ip6addrconv((char *)buffer, &tmp_dst_addr);	
 			}
 			if ((len = coap_get_post_variable(request, "ac", &str))) {
-			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
-			action=atoi((char *)buffer);
-			LOG_INFO("action = %d\n",action);
+				snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
+				action=atoi((char *)buffer);
+				LOG_INFO("action = %d\n",action);
+			}else{
+				LOG_INFO("NO Action found");
 			}
 			if ((len = coap_get_post_variable(request, "n", &str))) {
 			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
@@ -210,22 +211,17 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 				LOG_INFO("NO NXHOP ADDR");
 			}
 
+			flow_entry_s *temp_entry=NULL;
 
-				while(flowmodpos<=table_entries){
-					printf("loop ");
-					LOG_INFO_6ADDR(&flow_table[flowmodpos].ipv6dst);
-					printf("\n");
-					if(uip_ipaddr_cmp(&tmp_dst_addr,&flow_table[flowmodpos].ipv6dst)) {
-						if(uip_ipaddr_cmp(&tmp_src_addr,&flow_table[flowmodpos].ipv6src)){
-							printf("flow found !\n");
-							printf("get_next_hop_by_flow ipv6dst: ");
-							LOG_INFO_6ADDR(&flow_table[flowmodpos].ipv6dst);
-							printf("\n");
-							break;
+			for(temp_entry=&linked_table; temp_entry!=NULL ;temp_entry=temp_entry->next){
+				if(uip_ipaddr_cmp(&tmp_src_addr,&temp_entry->ipv6src)){
+					if(uip_ipaddr_cmp(&tmp_dst_addr,&temp_entry->ipv6dst)){
+						printf("flowid entry found, changing values\n");
+						existing_flow = 1;
+						break;
+					}
+				}
 			}
-		}
-		flowmodpos++;
-		}
 			printf("is flow exist = %d\n",existing_flow);
 
 			len = coap_get_post_variable(request,"o",&str);
@@ -233,19 +229,45 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			printf("operation: %s\n",(char *) buffer);
 
 			if ((char)buffer[0] == 'i') {
-				if(table_entries<FLOW_TABLE_SIZE){
-					LOG_INFO("Insert operation selected\n");
-					flow_table[flowmodpos].action=action;
-					flow_table[flowmodpos].ipv6dst=tmp_dst_addr;
-					flow_table[flowmodpos].ipv6src=tmp_src_addr;
-					flow_table[flowmodpos].nhipaddr=nxhopaddr;
-					flow_table[flowmodpos].ttl=900;
-					table_entries++;
+				printf("Insert operation selected\n");
+				if(existing_flow!=1){
+					MEMB(flow_entry_storage,flow_entry_s,1);
+					memb_init(&flow_entry_storage);
+					flow_entry_s* new_entry=memb_alloc(&flow_entry_storage);
+					if(new_entry){
+						printf("New Entry allocated\n");
+						memset(new_entry, 0, sizeof(flow_entry_s));
+						new_entry->ipv6src=tmp_src_addr;
+						new_entry->ipv6dst=tmp_dst_addr;
+						new_entry->action=action;
+						new_entry->nhipaddr=nxhopaddr;
+						LOG_INFO_6ADDR(&new_entry->nhipaddr);
+						new_entry->ttl=900;
+						new_entry->next=NULL;
+						printf("New Entry created\n");
+						temp_entry=&linked_table;
+						while (true){
+							if(temp_entry->next==NULL){
+								temp_entry->next=new_entry;
+								printf("new flow entry added\n");
+								coap_set_status_code(response, CHANGED_2_04);
+								break;
+							}
+							temp_entry=temp_entry->next;
+						}
+					}else{
+						printf("cannot create new flow entry");
+					}
 				}else{
-					LOG_ERR("FLOW TABLE FULL");
+					printf("Flow Entry Available");
+
 				}
-				
 			}
+
+
+
+
+
 
 
 printf("%c", buffer[0]);
@@ -302,10 +324,10 @@ static void
 res_periodic_packet_in_handler()
 {
 	if(1) {
-		//PRINTF("packet_in_periodic_handler\n");
+		PRINTF("packet_in_periodic_handler\n");
 		/* Notify the registered observers which will trigger the
 		 *  res_get_handler to create the response. */
-		//printf("noflow packets 1: %d \n",noflow_packet_count);
+		printf("noflow packets 1: %d \n",noflow_packet_count);
 		while(noflow_packet_count>0) {
 			printf("noflow packets 2: %d \n",noflow_packet_count);
 			current_packet_count = noflow_packet_count - 1 ;

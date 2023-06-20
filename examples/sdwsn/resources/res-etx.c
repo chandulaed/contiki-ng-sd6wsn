@@ -126,8 +126,7 @@ res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buff
 static void
 res_periodic_handler()
 {
-	LOG_INFO("etestp");
- uint8_t parent_counter = 0;
+ 	uint8_t parent_counter = 0;
 	uint16_t etx_temp;
 	//uint8_t etx_changed = 0;
 
@@ -140,7 +139,6 @@ res_periodic_handler()
 					etx_table[parent_counter].nbr_etx = etx_temp ;
 					//etx_changed = 1;
 		}
-		LOG_INFO("etest");
 		parent_counter++;
 	}
 	

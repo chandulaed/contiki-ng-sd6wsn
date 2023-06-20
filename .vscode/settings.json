@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "uip-ds6.h": "c"
+        "uip-ds6.h": "c",
+        "routing.h": "c"
     }
 }

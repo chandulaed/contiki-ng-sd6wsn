@@ -69,6 +69,7 @@ uint8_t noflow_packet_srcaddr[NO_FLOW_ENTRIES];
 uint8_t noflow_packet_dstaddr[NO_FLOW_ENTRIES];
 uint16_t noflow_packet_srcport[NO_FLOW_ENTRIES];
 uint16_t noflow_packet_dstport[NO_FLOW_ENTRIES];
+int processdelete = 0;
 
 
 
@@ -82,7 +83,7 @@ PERIODIC_RESOURCE(res_packet_in, "title=\"Packet-in\";rt=\"Text\";obs",
 		NULL,//post
 		NULL,//put
 		NULL,//delete
-		60*CLOCK_SECOND,
+		CLOCK_SECOND,
 		res_periodic_packet_in_handler);
 
 /*get next hop from flow table*/
@@ -94,7 +95,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
   	if(*dstport == 5683 || *srcport == 5683 ) {
 		return NULL;
 	}
-
+	
 	while(table_pos<=table_entries){
 		printf("loop ");
 		LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
@@ -110,41 +111,15 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 		}
 		table_pos++;
 	}
-/*
-	printf("number of table_entries: %d\n",table_entries);
-	while(table_pos<=table_entries){
-		if(uip_ipaddr_cmp(dstaddress,&flow_table[table_pos].ipv6dst)) {
-			if(uip_ipaddr_cmp(srcaddress,&flow_table[table_pos].ipv6src)){
-				if(*srcport == flow_table[table_pos].srcport
-						|| &flow_table[table_pos].srcport == NULL ){
-					if(*dstport == flow_table[table_pos].dstport
-							|| &flow_table[table_pos].dstport == NULL){
-						if(*proto == flow_table[table_pos].ipproto
-								|| &flow_table[table_pos].ipproto == NULL){
-							printf("flow found !\n");
-
-							break;
-						}
-					}
-				}
-			}
-		}
-		table_pos++;
-	}
-*/
-	
-	
 
   if(table_pos>table_entries) {
 		printf("no record found\n");
 		noflow_packet_srcaddr[noflow_packet_count] = srcaddress->u8[15];
 		noflow_packet_dstaddr[noflow_packet_count] = dstaddress->u8[15];
-		noflow_packet_srcport[noflow_packet_count] = (uint16_t)*srcport;
-		noflow_packet_dstport[noflow_packet_count] = (uint16_t)*dstport;
 		noflow_packet_count++;
     return NULL;
     	}else {
-		if(flow_table[table_pos].action == 0 ) { // action = forward
+		if(flow_table[table_pos].action == 0 && flow_table[table_pos].action != 0 ) { // action = forward
 			printf("next hop returned: ");
 			LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
 			LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
@@ -167,6 +142,17 @@ RESOURCE(res_flow_mod, "title=\"Flow-mod\";rt=\"Text\"",
 		flow_mod_handler,//post
 		NULL,//put
 		NULL);//delete
+
+
+void deleteEntry (int flowIndex){
+	table_entries = table_entries -1;
+	while(flowIndex<table_entries){
+		flow_table[flowIndex]=flow_table[flowIndex+1];
+		flowIndex++;
+	}
+	LOG_INFO("Flow Deleted");
+}
+
 
 static void
 flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *buffer,
@@ -256,6 +242,9 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 						}
 						}else{
 							LOG_INFO("Flow entry Exist for auto Request");
+							flow_table[flowmodpos].action=action;
+							flow_table[flowmodpos].nhipaddr=nxhopaddr;
+							flow_table[flowmodpos].ttl=900;
 						}
 					}else{
 						LOG_INFO("Manual Request Handling");
@@ -284,34 +273,17 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 				}
 			}
 
-
-			if ((char) buffer[0] == 'd') {  //operation flow delete
-	/*	if ((len = coap_get_post_variable(request, "flowid", &str))) {
-			snprintf((char *) buffer, COAP_MAX_CHUNK_SIZE - 1, "%.*s", len, str);
-			flowid_temp=atoi((char *)buffer);
-		}
-		
-
-		printf("operation = delete, flowid = %d",flowid_temp);
-		*/
-	/*
-		while(table_index<=table_entries){  // find the entry
-			printf("ti=%d",flow_table[table_index].flowid);
-			if(flowid_temp == flow_table[table_index].flowid ) {
-				printf("delete:flowid entry found!\n");
-				while(table_index <= table_entries){ // shift up the rest of entries
-					flow_table[table_index] = flow_table[table_index + 1];
-					table_index++;
-			    }
-				table_entries--;
-				break;
+			if ((char) buffer[0] == 'd') {
+				LOG_INFO("Delete Operation");
+				if(existing_flow==1){
+					deleteEntry(flowmodpos);
+				}else{
+					LOG_INFO("No Flow Found");
+				}				
+				  
 			}
-		table_index++;
-		}
 	}
-	*/}
 	
-	}
 
 void packet_in_handler(coap_message_t* request, coap_message_t* response, uint8_t *buffer,
 		uint16_t preferred_size, int32_t *offset) {
@@ -338,15 +310,34 @@ static void
 res_periodic_packet_in_handler()
 {
 	if(1) {
+		LOG_INFO("Periodic Packet handler\n");
+		for(int i =0;i<table_entries;i++){
+			if(flow_table[i].ttl!=5000){
+				if(flow_table[i].ttl==3){
+					printf("no record found\n");
+					noflow_packet_srcaddr[noflow_packet_count] = flow_table[i].ipv6src.u8[15];
+					noflow_packet_dstaddr[noflow_packet_count] = flow_table[i].ipv6dst.u8[15];
+					noflow_packet_count++;
+				}
+				if(flow_table[i].ttl==1){
+					deleteEntry(i);
+					LOG_INFO("TTL expeired flow deleted\n");
+				}
+			flow_table[i].ttl=flow_table[i].ttl-1;
+			LOG_INFO("TTL Reduced %d ttl %d\n ", table_entries, flow_table[i].ttl);
+			}
+		}
 		//PRINTF("packet_in_periodic_handler\n");
 		/* Notify the registered observers which will trigger the
 		 *  res_get_handler to create the response. */
 		//printf("noflow packets 1: %d \n",noflow_packet_count);
+
 		while(noflow_packet_count>0) {
-			printf("noflow packets 2: %d \n",noflow_packet_count);
+			LOG_INFO("noflow packets 2: %d \n",noflow_packet_count);
 			current_packet_count = noflow_packet_count - 1 ;
 			coap_notify_observers(&res_packet_in);
 			noflow_packet_count--;
 		}
 	}
 }
+

@@ -56,6 +56,7 @@
 #endif
 
 #define NGSDWSN 1
+#define ENERGEST_CONF_ON 1
 
 #endif /* PROJECT_CONF_H_ */
 

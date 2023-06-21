@@ -95,16 +95,15 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
   	if(*dstport == 5683 || *srcport == 5683 ) {
 		return NULL;
 	}
-	
-	while(table_pos<=table_entries){
+	LOG_INFO("Path finding Flow table entries : %d",table_entries);
+	while(table_pos<table_entries){
 		LOG_INFO("check nexthop address loop :");
 		LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
 		LOG_INFO("\n");
 		if(uip_ipaddr_cmp(dstaddress,&flow_table[table_pos].ipv6dst)) {
 			if(uip_ipaddr_cmp(srcaddress,&flow_table[table_pos].ipv6src)){
 							printf("flow found !\n");
-							LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
-							return &flow_table[table_pos].nhipaddr;			
+							LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);		
 							break;
 			}
 		}
@@ -112,7 +111,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 	}
 
 
-  if(table_pos>table_entries) {
+  if(table_pos>=table_entries) {
 		LOG_INFO("no record found\n");
 		noflow_packet_srcaddr[noflow_packet_count] = srcaddress->u8[15];
 		noflow_packet_dstaddr[noflow_packet_count] = dstaddress->u8[15];
@@ -122,11 +121,11 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 
     	}else {
 
-		if(flow_table[table_pos].action == 0 && flow_table[table_pos].action != 0) {
+		if(flow_table[table_pos].action == 0 && flow_table[table_pos].ttl != 0) {
 			LOG_INFO("next hop returned: ");
 			LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
-			LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
 			LOG_INFO("\n");
+			LOG_INFO("Action %d",flow_table[table_pos].action);
 
 			return (&flow_table[table_pos].nhipaddr); //action = frd;
 		} else{
@@ -148,17 +147,19 @@ RESOURCE(res_flow_mod, "title=\"Flow-mod\";rt=\"Text\"",
 
 
 void deleteEntry (int flowIndex){
-	//delete entry from flow table
-	while (flowIndex<table_entries){
-	 if(flowIndex<table_entries-1){
-		for(int j=flowIndex;j<flowIndex-1;j++){
+	LOG_INFO("Delete operation Index : %d\n",flowIndex);
+	LOG_INFO("Delete operation Table Entries : %d\n",table_entries);
+	if(flowIndex<table_entries-1){
+	for(int j=flowIndex;j<table_entries-1;j++){
+		LOG_INFO("shifsrc addr:");
+		LOG_INFO_6ADDR(&flow_table[j+1].ipv6src);
+		LOG_INFO("\n");
 			flow_table[j]=flow_table[j+1];
 		}
-		table_entries--;
-	 }
-	 else 
-	 flowIndex++;
 	}
+	table_entries--;
+	LOG_INFO("table entries: %d",table_entries);
+	//delete entry from flow table
 }
 
 
@@ -208,7 +209,7 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 			}
 
 			//check existing flow
-			while(flowexistingpos<=table_entries){
+			while(flowexistingpos<table_entries){
 					LOG_INFO("loop check exisitng pos : ");
 					LOG_INFO_6ADDR(&flow_table[flowexistingpos].ipv6dst);
 					LOG_INFO("\n");
@@ -244,11 +245,11 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 						if(existing_flow!=1){ // if no flow recod found
 							LOG_INFO("Flow entry not Exist.. add flow for auto Request\n");
 							if(table_entries<FLOW_TABLE_SIZE){ // if flow table size is not full
-							flow_table[flowexistingpos-1].action=action;
-							flow_table[flowexistingpos-1].ipv6dst=tmp_dst_addr;
-							flow_table[flowexistingpos-1].ipv6src=tmp_src_addr;
-							flow_table[flowexistingpos-1].nhipaddr=nxhopaddr;
-							flow_table[flowexistingpos-1].ttl=900;
+							flow_table[flowexistingpos].action=action;
+							flow_table[flowexistingpos].ipv6dst=tmp_dst_addr;
+							flow_table[flowexistingpos].ipv6src=tmp_src_addr;
+							flow_table[flowexistingpos].nhipaddr=nxhopaddr;
+							flow_table[flowexistingpos].ttl=900;
 							table_entries++;
 							LOG_INFO("Inserted New Automatic Flow ttl : %d \n", flow_table[flowexistingpos].ttl );
 						}else{
@@ -268,11 +269,11 @@ flow_mod_handler(coap_message_t  *request, coap_message_t *response, uint8_t *bu
 						if(existing_flow!=1){
 							LOG_INFO("Flow entry not Exist.. add flow for manual Request\n");
 							if(table_entries<FLOW_TABLE_SIZE){						
-							flow_table[flowexistingpos-1].action=action;
-							flow_table[flowexistingpos-1].ipv6dst=tmp_dst_addr;
-							flow_table[flowexistingpos-1].ipv6src=tmp_src_addr;
-							flow_table[flowexistingpos-1].nhipaddr=nxhopaddr;
-							flow_table[flowexistingpos-1].ttl=5000;
+							flow_table[flowexistingpos].action=action;
+							flow_table[flowexistingpos].ipv6dst=tmp_dst_addr;
+							flow_table[flowexistingpos].ipv6src=tmp_src_addr;
+							flow_table[flowexistingpos].nhipaddr=nxhopaddr;
+							flow_table[flowexistingpos].ttl=5000;
 							table_entries++;
 							LOG_INFO("Inserted New Manual Flow ttl : %d\n",flow_table[flowexistingpos].ttl);
 						}else{
@@ -327,13 +328,13 @@ static void
 res_periodic_packet_in_handler()
 {
 	if(1) {
-		LOG_INFO("Periodic Packet handler\n");
+		//LOG_INFO("Periodic Packet handler\n");
 		int i=0;
 		while(i<table_entries){ //check TTL
 			if(flow_table[i].ttl!=5000){ // check TTL can be changed
 						flow_table[i].ttl=flow_table[i].ttl-1; //change ttl
-						LOG_INFO("TTL Reduced flow :%d TTL: %d\n ", table_entries, flow_table[i].ttl);
-						LOG_INFO_6ADDR(&flow_table[i].ipv6src);
+						//LOG_INFO("TTL Reduced flow :%d TTL: %d\n ", table_entries, flow_table[i].ttl);
+						//LOG_INFO_6ADDR(&flow_table[i].ipv6src);
 				if(flow_table[i].ttl==0){ // check TTL is 1s
 						LOG_INFO("TTL 0\n");
 						if(i<table_entries-1){
@@ -366,7 +367,7 @@ res_periodic_packet_in_handler()
 
 		while(noflow_packet_count>0) {
 			current_packet_count = noflow_packet_count - 1 ;
-			LOG_INFO("Current Packet count: %d, NoFlowPacketCount %d \n",noflow_packet_count,noflow_packet_count);
+			LOG_INFO("Current Packet count: %d, \n",noflow_packet_count);
 			coap_notify_observers(&res_packet_in);
 			noflow_packet_count--;
 		}

@@ -45,8 +45,8 @@
 #include <string.h>
 #include "coap-engine.h"
 #include "net/ipv6/uip.h"
-#include "net/routing/rpl-lite/rpl.h"
-#include "net/routing/rpl-lite/rpl-conf.h"
+#include "net/routing/rpl-classic/rpl.h"
+#include "net/routing/rpl-classic/rpl-private.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-debug.h"
 #include "contiki.h"
@@ -54,7 +54,7 @@
 #include "net/ipv6/uip-ds6-nbr.h"
 #include "net/ipv6/uip-ds6-route.h"
 #include "net/routing/routing.h"
-#include "net/ipv6/uip-sr.h"
+#include "net/ipv6/uip.h"
 #define DEBUG DEBUG_NONE
 
 int count;
@@ -76,7 +76,7 @@ uint16_t ipaddr_last_chunk(const uip_ipaddr_t *addr, uint8_t *buffer) {
 	uint16_t a, n;
 	n = 0;
 	a = (addr->u8[14] << 8) + addr->u8[15]; //only the end of address
-	n += sprintf((char *)&buffer[n], "%x", a);
+	n += sprintf((char *)&buffer[n], "n%d", a);
 	return n;
 }
 
@@ -89,34 +89,30 @@ node_mod_handler(coap_message_t *request, coap_message_t *response, uint8_t *buf
    * This would be a TODO in the corresponding files in contiki/apps/erbium/!
    */
 
-  	uip_sr_node_t *r;
+  	uip_ds6_route_t *r;
 	volatile uint8_t i;
 	uint16_t n = 0;
-
+	const uip_ipaddr_t *myaddr;
+    myaddr = &uip_ds6_if.addr_list[1].ipaddr;
 	/* count the number of routes and return the total */
-	count = uip_sr_num_nodes();
+	count = uip_ds6_route_num_routes();
 
 	
 	printf("number of node : %d\n",count);
 
 	i = 1;
-	int a;
+
 	
 	if(count > 0) {
 		n += sprintf((char *)&(buffer[n]), "{\"node\":\"");
 		coap_set_status_code(response, CHANGED_2_04);
-		for (r = uip_sr_node_head(); r != NULL;
-				r = uip_sr_node_next(r), i++) {	
-			uip_ip6addr_t ip6_ipaddr;
-			NETSTACK_ROUTING.get_sr_node_ipaddr(&ip6_ipaddr, r);
-			a = (ip6_ipaddr.u8[14] << 8) + ip6_ipaddr.u8[15]; //only the end of address
-			printf(" node id = %d ",a);
-			n += sprintf((char *)&buffer[n], "n%d", a);
-			
-			//n += ipaddr_last_chunk(&r->ipaddr,&(buffer[n]));
+		for (r = uip_ds6_route_head(); r != NULL;
+				r = uip_ds6_route_next(r), i++) {	
+			n += ipaddr_last_chunk(&r->ipaddr,&(buffer[n]));
 			n += sprintf((char *)&(buffer[n]), ",");
 		}
-		n += sprintf((char *)&(buffer[n - 1]), "\"}"); // replace last comma
+		n += ipaddr_last_chunk(myaddr,&(buffer[n])); // add self mote id
+		n += sprintf(((char *)&buffer[n]), "\"}"); 
 	} else {
 		n += sprintf((char *)&(buffer[n]), "{\"noden\":\"");
 		n += sprintf(((char *)&buffer[n]), "\"}");
@@ -138,7 +134,7 @@ static void
 res_periodic_handler()
 {
  if(1) {
-		if(count != uip_sr_num_nodes()) {
+		if(count != uip_ds6_route_num_routes()) {
 			printf("nofity");
 			/* Notify the registered observers which will trigger the res_get_handler to create the response. */
 			coap_notify_observers(&res_node_mod);//REST.notify_subscribers(&res_node_mod);

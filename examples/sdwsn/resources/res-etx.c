@@ -92,7 +92,7 @@ res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buff
 
     parent_index = 0;
   if (dag!=NULL){
-    strpos += sprintf((char *)&(buffer[strpos]),"{\"node\":\"n%x\"",((addr->u8[14] << 8) + addr->u8[15])); // last addr byte of mote
+    strpos += sprintf((char *)&(buffer[strpos]),"{\"node\":\"n%d\"",((addr->u8[14] << 8) + addr->u8[15])); // last addr byte of mote
 		strpos += sprintf((char *)&(buffer[strpos]),",\"nbr\":{");
 		parent = nbr_table_head(rpl_neighbors);  // addr of first neighbor
 		while (parent != NULL)
@@ -100,7 +100,7 @@ res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buff
 			etx_table[parent_index].nbr_addr = (rpl_parent_get_ipaddr(parent)->u8[14] << 8) + rpl_parent_get_ipaddr(parent)->u8[15];
 			etx_table[parent_index].nbr_etx = rpl_neighbor_get_link_metric(parent);
 			etx_table[parent_index].p = parent;
-			strpos += sprintf((char *)&(buffer[strpos]),"\"n%x\":%u,",etx_table[parent_index].nbr_addr,
+			strpos += sprintf((char *)&(buffer[strpos]),"\"n%d\":%u,",etx_table[parent_index].nbr_addr,
 					etx_table[parent_index].nbr_etx);
 			parent = nbr_table_next(rpl_neighbors, parent);
 			parent_index++;
@@ -132,7 +132,7 @@ res_periodic_handler()
 
 	while(parent_counter < parent_index) {
 		etx_temp = rpl_neighbor_get_link_metric(etx_table[parent_counter].p);
-		LOG_INFO("parent: %x ",etx_table[parent_counter].nbr_addr);
+		LOG_INFO("parent: %d ",etx_table[parent_counter].nbr_addr);
 		LOG_INFO("etx_temp:%d\n",etx_temp);
 		if(etx_temp > etx_table[parent_counter].nbr_etx * 2
 				|| etx_temp < etx_table[parent_counter].nbr_etx / 2 ) {

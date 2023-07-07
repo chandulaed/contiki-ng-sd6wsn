@@ -31,7 +31,7 @@
 
 /**
  * \file
- *     	Node-modeification-details
+ *      Observe ETX value
  * \author
  *      Matthias Kovatsch <kovatsch@inf.ethz.ch>
  * \author
@@ -45,43 +45,37 @@
 #include <string.h>
 #include "coap-engine.h"
 #include "net/ipv6/uip.h"
-#include "net/routing/rpl-lite/rpl.h"
-#include "net/routing/rpl-lite/rpl-conf.h"
+#include "net/routing/rpl-classic/rpl.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-debug.h"
-#include "contiki.h"
-#include "contiki-net.h"
-#include "net/ipv6/uip-ds6-nbr.h"
-#include "net/ipv6/uip-ds6-route.h"
-#include "net/routing/routing.h"
-#include "net/ipv6/uip-sr.h"
-#define DEBUG DEBUG_NONE
+#include "sys/log.h"
+#define LOG_MODULE "App"
+#define LOG_LEVEL LOG_LEVEL_INFO
 
-int count;
+typedef struct etx_s {
+	uint16_t nbr_addr;
+	uint16_t nbr_etx;
+	rpl_parent_t * p;
+}etx_s ;
 
-uint16_t ipaddr_last_chunk(const uip_ipaddr_t *addr, uint8_t *buffer);
-static void node_mod_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer,
-		uint16_t preferred_size, int32_t *offset);
+etx_s etx_table[NBR_TABLE_CONF_MAX_NEIGHBORS]; // number of neighbors configured
+uint8_t parent_index;
+
+static void res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset);
 static void res_periodic_handler(void);
 
-PERIODIC_RESOURCE(res_node_mod, "title=\"Nodes List\";rt=\"Text\";obs",
-		node_mod_handler, //get
-		NULL,//post
-		NULL,//put
-		NULL,//delete
-		120 * CLOCK_SECOND,
+
+PERIODIC_RESOURCE(res_etx,
+		"title=\"etx\";obs",
+		res_get_handler,
+		NULL,
+		NULL,
+		NULL,
+		90 * CLOCK_SECOND,
 		res_periodic_handler);
 
-uint16_t ipaddr_last_chunk(const uip_ipaddr_t *addr, uint8_t *buffer) {
-	uint16_t a, n;
-	n = 0;
-	a = (addr->u8[14] << 8) + addr->u8[15]; //only the end of address
-	n += sprintf((char *)&buffer[n], "%x", a);
-	return n;
-}
-
 static void
-node_mod_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
+res_get_handler(coap_message_t *request, coap_message_t *response, uint8_t *buffer, uint16_t preferred_size, int32_t *offset)
 {
   /*
    * For minimal complexity, request query and options should be ignored for GET on observable resources.
@@ -89,43 +83,38 @@ node_mod_handler(coap_message_t *request, coap_message_t *response, uint8_t *buf
    * This would be a TODO in the corresponding files in contiki/apps/erbium/!
    */
 
-  	uip_sr_node_t *r;
-	volatile uint8_t i;
-	uint16_t n = 0;
+    rpl_dag_t *dag;
+    rpl_parent_t *parent;
+    int32_t strpos=0;
+    const uip_ipaddr_t *addr;
+    addr = &uip_ds6_if.addr_list[1].ipaddr;
+    dag=rpl_get_any_dag();
 
-	/* count the number of routes and return the total */
-	count = uip_sr_num_nodes();
-
-	
-	printf("number of node : %d\n",count);
-
-	i = 1;
-	int a;
-	
-	if(count > 0) {
-		n += sprintf((char *)&(buffer[n]), "{\"node\":\"");
-		coap_set_status_code(response, CHANGED_2_04);
-		for (r = uip_sr_node_head(); r != NULL;
-				r = uip_sr_node_next(r), i++) {	
-			uip_ip6addr_t ip6_ipaddr;
-			NETSTACK_ROUTING.get_sr_node_ipaddr(&ip6_ipaddr, r);
-			a = (ip6_ipaddr.u8[14] << 8) + ip6_ipaddr.u8[15]; //only the end of address
-			printf(" node id = %d ",a);
-			n += sprintf((char *)&buffer[n], "n%d", a);
-			
-			//n += ipaddr_last_chunk(&r->ipaddr,&(buffer[n]));
-			n += sprintf((char *)&(buffer[n]), ",");
+    parent_index = 0;
+  if (dag!=NULL){
+    strpos += sprintf((char *)&(buffer[strpos]),"{\"node\":\"n%d\"",((addr->u8[14] << 8) + addr->u8[15])); // last addr byte of mote
+		strpos += sprintf((char *)&(buffer[strpos]),",\"nbr\":{");
+		parent = nbr_table_head(rpl_parents);  // addr of first neighbor
+		while (parent != NULL)
+		{
+			etx_table[parent_index].nbr_addr = (rpl_parent_get_ipaddr(parent)->u8[14] << 8) + rpl_parent_get_ipaddr(parent)->u8[15];
+			etx_table[parent_index].nbr_etx = rpl_get_parent_link_metric(parent);
+			etx_table[parent_index].p = parent;
+			strpos += sprintf((char *)&(buffer[strpos]),"\"n%d\":%u,",etx_table[parent_index].nbr_addr,
+					etx_table[parent_index].nbr_etx);
+			parent = nbr_table_next(rpl_parents, parent);
+			parent_index++;
 		}
-		n += sprintf((char *)&(buffer[n - 1]), "\"}"); // replace last comma
-	} else {
-		n += sprintf((char *)&(buffer[n]), "{\"noden\":\"");
-		n += sprintf(((char *)&buffer[n]), "\"}");
-	} 
+  }
+
+  else
+  {
+    strpos +=sprintf((char *)&(buffer[strpos]),"{}\n");
+  }
+  strpos += sprintf((char *)&(buffer[strpos-1]),"}}\n");
   coap_set_header_content_format(response,APPLICATION_JSON);
-  coap_set_header_max_age(response,res_node_mod.periodic->period / CLOCK_SECOND);
-  printf("send responce");
-  printf("%s",(char *)buffer);
-  coap_set_payload(response, buffer , strlen((char *)buffer));
+  coap_set_header_max_age(response,res_etx.periodic->period/CLOCK_SECOND);
+  coap_set_payload(response, buffer, strlen((char *)buffer));
 
   /* The coap_subscription_handler() will be called for observable resources by the coap_framework. */
 }
@@ -137,12 +126,27 @@ node_mod_handler(coap_message_t *request, coap_message_t *response, uint8_t *buf
 static void
 res_periodic_handler()
 {
- if(1) {
-		if(count != uip_sr_num_nodes()) {
-			printf("nofity");
-			/* Notify the registered observers which will trigger the res_get_handler to create the response. */
-			coap_notify_observers(&res_node_mod);//REST.notify_subscribers(&res_node_mod);
+ 	uint8_t parent_counter = 0;
+	uint16_t etx_temp;
+	//uint8_t etx_changed = 0;
+
+	while(parent_counter < parent_index) {
+		etx_temp = rpl_get_parent_link_metric(etx_table[parent_counter].p);
+		LOG_INFO("parent: %d ",etx_table[parent_counter].nbr_addr);
+		LOG_INFO("etx_temp:%d\n",etx_temp);
+		if(etx_temp > etx_table[parent_counter].nbr_etx * 2
+				|| etx_temp < etx_table[parent_counter].nbr_etx / 2 ) {
+					etx_table[parent_counter].nbr_etx = etx_temp ;
+					//etx_changed = 1;
 		}
+		parent_counter++;
 	}
+	
+	/* Notify the registered observers which will trigger the res_get_handler to create the response. */
+	if (0) {
+		LOG_INFO("etx_changed !\n");
+		coap_notify_observers(&res_etx);
+  }
 }
+
 

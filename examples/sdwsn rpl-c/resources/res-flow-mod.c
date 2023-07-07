@@ -309,9 +309,9 @@ void packet_in_handler(coap_message_t* request, coap_message_t* response, uint8_
 
 	uint16_t n = 0;
 	LOG_INFO("flow request :src-dst-address:%d %d\n", noflow_packet_srcaddr[current_packet_count],noflow_packet_dstaddr[current_packet_count]);
-	n += sprintf((char *)&(buffer[n]), "{\"sn\":\"n%x\",",((addr->u8[14] << 8) + addr->u8[15]));
+	n += sprintf((char *)&(buffer[n]), "{\"sn\":\"n%d\",",((addr->u8[14] << 8) + addr->u8[15]));
 	n += sprintf((char *)&(buffer[n]), "\"pn\":{");
-	n += sprintf((char *)&(buffer[n]),"\"saddr\":\"%x\",\"daddr\":\"%x\"}}",
+	n += sprintf((char *)&(buffer[n]),"\"saddr\":\"%d\",\"daddr\":\"%d\"}}",
 			noflow_packet_srcaddr[current_packet_count],
 			noflow_packet_dstaddr[current_packet_count]);
 	coap_set_header_content_format(response, APPLICATION_JSON);

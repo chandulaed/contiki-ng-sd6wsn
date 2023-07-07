@@ -96,8 +96,8 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 		return NULL;
 	}
 	while(table_pos<table_entries){
-		LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
-		LOG_INFO("\n");
+		//LOG_INFO_6ADDR(&flow_table[table_pos].ipv6dst);
+		//LOG_INFO("\n");
 		if(uip_ipaddr_cmp(dstaddress,&flow_table[table_pos].ipv6dst)) {
 			if(uip_ipaddr_cmp(srcaddress,&flow_table[table_pos].ipv6src)){
 							printf("flow found !\n");									
@@ -113,7 +113,6 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 		noflow_packet_srcaddr[noflow_packet_count] = srcaddress->u8[15];
 		noflow_packet_dstaddr[noflow_packet_count] = dstaddress->u8[15];
 		noflow_packet_count++;
-		
 		return NULL; // action no flow drop
 
     	}else {
@@ -122,7 +121,7 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 			LOG_INFO("next hop returned: ");
 			LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
 			LOG_INFO("\n");
-			LOG_INFO("Action %d",flow_table[table_pos].action);
+			//LOG_INFO("Action %d",flow_table[table_pos].action);
 			return (&flow_table[table_pos].nhipaddr); //action = frd;
 		} else{
 				return NULL; // action = drop
@@ -324,7 +323,7 @@ static void
 res_periodic_packet_in_handler()
 {
 	if(1) {
-		//LOG_INFO("Periodic Packet handler\n");
+		LOG_INFO("Periodic Packet handler\n");
 		int i=0;
 		while(i<table_entries){ //check TTL
 			if(flow_table[i].ttl!=5000){ // check TTL can be changed
@@ -332,11 +331,11 @@ res_periodic_packet_in_handler()
 						//LOG_INFO("TTL Reduced flow :%d TTL: %d\n ", table_entries, flow_table[i].ttl);
 						//LOG_INFO_6ADDR(&flow_table[i].ipv6src);
 				if(flow_table[i].ttl==0){ // check TTL is 1s
-						LOG_INFO("TTL 0\n");
+						LOG_INFO("Timeout 0\n");
 						if(i<table_entries-1){
 						for(int j=i;j<(table_entries-1);j++){
 							flow_table[j]=flow_table[j+1]; // delete entry
-							LOG_INFO("TTL expeired flow deleted\n");
+							LOG_INFO("Timout expeired flow deleted\n");
 						}
 						}
 						table_entries--;

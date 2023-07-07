@@ -54,9 +54,9 @@
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "TCP/IP"
-#define LOG_LEVEL LOG_LEVEL_TCPIP
+//#define LOG_LEVEL LOG_LEVEL_TCPIP
 //#define LOG_LEVEL LOG_LEVEL_ERR
-//#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_INFO
 #ifdef UIP_FALLBACK_INTERFACE
 extern struct uip_fallback_interface UIP_FALLBACK_INTERFACE;
 #endif
@@ -513,21 +513,19 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
 
 #ifdef NGSDWSN
 
-    //	uint16_t udpsrcport = (*((uint8_t *)UIP_UDP_BUF + 8) << 8) | *((uint8_t *)UIP_UDP_BUF + 9);
+      const uip_ipaddr_t *saddr;
+      saddr = &UIP_IP_BUF->srcipaddr;
+      uint8_t ipprefix = (saddr->u8[14] << 8) + (saddr->u8[15]);
       uint16_t udpsrcport = UIP_HTONS(UIP_UDP_BUF->srcport);
-		//	uint16_t udpdstport = (*((uint8_t *)UIP_UDP_BUF + 10) << 8) | *((uint8_t *)UIP_UDP_BUF + 11);
       uint16_t udpdstport = UIP_HTONS(UIP_UDP_BUF->destport);
-      
       LOG_INFO("source port -> %d, destination port -> %d \n",udpsrcport,udpdstport);
       uint8_t proto_out = *((uint8_t *)UIP_IP_BUF + 40);
       LOG_INFO("protocol -->%d \n",proto_out);
-    
-        if(proto_out == UIP_PROTO_UDP){
+        if(proto_out == UIP_PROTO_UDP && ipprefix!= 1){
         LOG_INFO("Selecting with Custom Flow Table port -->%d \n",udpsrcport);
           nexthop = get_next_hop_by_flow(&UIP_IP_BUF->srcipaddr,&UIP_IP_BUF->destipaddr,&udpsrcport,&udpdstport,&proto_out);
         LOG_INFO("Address Selected ");
         if(nexthop!=NULL){
-
           LOG_INFO_6ADDR(nexthop);}else{
           if (/* condition */udpsrcport==8765 || udpdstport==5678)
           {
@@ -550,7 +548,8 @@ if(NETSTACK_ROUTING.ext_header_srh_get_next_hop(addr)) {
 
 //check whether port is 5683 sd6wsn
 #ifdef NGSDWSN
-if(udpsrcport==5683 || udpdstport==5683||proto_out != UIP_PROTO_UDP){ //
+ 
+if(udpsrcport==5683 || udpdstport==5683||proto_out != UIP_PROTO_UDP || ipprefix == 1){ //
   LOG_INFO("RPL ROUTING\n");
   #endif
     /* We first check if the destination address is on our immediate

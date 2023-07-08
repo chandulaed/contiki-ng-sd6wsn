@@ -121,9 +121,10 @@ uip_ipaddr_t * get_next_hop_by_flow(uip_ip6addr_t *srcaddress,uip_ip6addr_t *dst
 			LOG_INFO("next hop returned: ");
 			LOG_INFO_6ADDR(&flow_table[table_pos].nhipaddr);
 			LOG_INFO("\n");
-			//LOG_INFO("Action %d",flow_table[table_pos].action);
+			
 			return (&flow_table[table_pos].nhipaddr); //action = frd;
 		} else{
+				LOG_INFO("Action %d \n",flow_table[table_pos].action);
 				return NULL; // action = drop
 			}
 		}
@@ -323,7 +324,7 @@ static void
 res_periodic_packet_in_handler()
 {
 	if(1) {
-		LOG_INFO("Periodic Packet handler\n");
+		//LOG_INFO("Periodic Packet handler\n");
 		int i=0;
 		while(i<table_entries){ //check TTL
 			if(flow_table[i].ttl!=5000){ // check TTL can be changed
@@ -331,7 +332,7 @@ res_periodic_packet_in_handler()
 						//LOG_INFO("TTL Reduced flow :%d TTL: %d\n ", table_entries, flow_table[i].ttl);
 						//LOG_INFO_6ADDR(&flow_table[i].ipv6src);
 				if(flow_table[i].ttl==0){ // check TTL is 1s
-						LOG_INFO("Timeout 0\n");
+						LOG_INFO("Timeout : 0\n");
 						if(i<table_entries-1){
 						for(int j=i;j<(table_entries-1);j++){
 							flow_table[j]=flow_table[j+1]; // delete entry
